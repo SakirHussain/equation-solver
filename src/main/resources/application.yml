@@ -1,0 +1,12 @@
+# pure in-memory mode – no database configured
+
+spring:
+  profiles:
+    active: default
+
+# Swagger-UI will be available at /swagger-ui.html
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs 
