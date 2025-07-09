@@ -4,7 +4,9 @@ import com.example.equation.exception.EquationSyntaxException;
 import com.example.equation.exception.VariableNotProvidedException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -134,6 +136,43 @@ public class GlobalExceptionHandler {
         errorResponse.put("message", ex.getMessage());
         
         return ResponseEntity.badRequest().body(errorResponse);
+    }
+    
+    /**
+     * Handles malformed JSON in request body.
+     * 
+     * @param ex the message not readable exception
+     * @return error response with JSON parsing error details
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<Map<String, Object>> handleHttpMessageNotReadableException(HttpMessageNotReadableException ex) {
+        Map<String, Object> errorResponse = new HashMap<>();
+        
+        errorResponse.put("timestamp", LocalDateTime.now());
+        errorResponse.put("status", HttpStatus.BAD_REQUEST.value());
+        errorResponse.put("error", "Malformed JSON");
+        errorResponse.put("message", "Request body contains invalid JSON");
+        
+        return ResponseEntity.badRequest().body(errorResponse);
+    }
+    
+    /**
+     * Handles unsupported media type errors (e.g., wrong Content-Type header).
+     * 
+     * @param ex the media type not supported exception
+     * @return error response with media type error details
+     */
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<Map<String, Object>> handleHttpMediaTypeNotSupportedException(HttpMediaTypeNotSupportedException ex) {
+        Map<String, Object> errorResponse = new HashMap<>();
+        
+        errorResponse.put("timestamp", LocalDateTime.now());
+        errorResponse.put("status", HttpStatus.UNSUPPORTED_MEDIA_TYPE.value());
+        errorResponse.put("error", "Unsupported Media Type");
+        errorResponse.put("message", "Content-Type '" + (ex.getContentType() != null ? ex.getContentType() : "unknown") + "' is not supported. Expected 'application/json'");
+        errorResponse.put("supportedMediaTypes", ex.getSupportedMediaTypes());
+        
+        return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE).body(errorResponse);
     }
     
     /**

@@ -41,18 +41,20 @@ public class EquationService {
     }
     
     /**
-     * Stores a mathematical expression by parsing it and converting to postfix notation.
-     * If the equation already exists, returns the existing equation's ID instead of creating a duplicate.
+     * Stores a mathematical expression by parsing it and generating an AST hash.
+     * If a mathematically equivalent equation already exists, returns the existing equation's ID.
+     * Uses AST structural hashing to detect mathematical equivalence regardless of:
+     * - Whitespace differences
+     * - Redundant parentheses
      * 
      * <p>Process:</p>
      * <ol>
-     *   <li>Check if equation already exists</li>
+     *   <li>Parse infix expression to build AST</li>
+     *   <li>Generate AST hash from tree structure</li>
+     *   <li>Check if equation with same AST hash exists</li>
      *   <li>If exists, return existing ID</li>
-     *   <li>If not, tokenize the infix expression</li>
-     *   <li>Convert to postfix notation using Shunting-Yard algorithm</li>
-     *   <li>Validate syntax by building expression tree</li>
-     *   <li>Extract token types for storage</li>
-     *   <li>Create and save EquationEntity</li>
+     *   <li>If not, tokenize and convert to postfix</li>
+     *   <li>Create and save EquationEntity with AST hash</li>
      * </ol>
      * 
      * @param infix the mathematical expression in infix notation
@@ -67,27 +69,27 @@ public class EquationService {
         
         String trimmedInfix = infix.trim();
         
-        // Check if equation already exists
-        Optional<EquationEntity> existingEquation = findEquationByInfix(trimmedInfix);
+        // Parse to build AST and generate hash for duplicate detection
+        Node expressionTree = parserService.parseExpression(trimmedInfix);
+        String astHash = expressionTree.generateHash();
+        
+        // Check if mathematically equivalent equation already exists
+        Optional<EquationEntity> existingEquation = equationRepository.findByAstHash(astHash);
         if (existingEquation.isPresent()) {
             return existingEquation.get().getId();
         }
         
-        // Parse and convert to postfix
+        // Parse and convert to postfix for storage
         List<TokenValue> infixTokens = parserService.tokenize(trimmedInfix);
         List<TokenValue> postfixTokens = parserService.infixToPostfix(infixTokens);
-        
-        // Validate syntax by building the expression tree
-        // This will throw EquationSyntaxException if the expression is invalid
-        parserService.buildExpressionTree(postfixTokens);
         
         // Extract token types for storage (without values)
         List<Token> postfixTypes = postfixTokens.stream()
             .map(TokenValue::getType)
             .toList();
         
-        // Create and save entity
-        EquationEntity equation = new EquationEntity(null, trimmedInfix, postfixTypes);
+        // Create and save entity with AST hash
+        EquationEntity equation = new EquationEntity(null, trimmedInfix, postfixTypes, astHash);
         EquationEntity savedEquation = equationRepository.save(equation);
         
         return savedEquation.getId();
@@ -188,16 +190,5 @@ public class EquationService {
         );
     }
     
-    /**
-     * Finds an equation by its infix expression.
-     * 
-     * @param infix the infix expression to search for
-     * @return Optional containing the equation if found, empty otherwise
-     */
-    private Optional<EquationEntity> findEquationByInfix(String infix) {
-        List<EquationEntity> allEquations = equationRepository.findAll();
-        return allEquations.stream()
-            .filter(equation -> equation.getInfix().equals(infix))
-            .findFirst();
-    }
+
 } 

@@ -38,7 +38,7 @@ class InMemoryEquationRepositoryTest {
         @DisplayName("Should save new equation and generate ID")
         void shouldSaveNewEquationWithGeneratedId() {
             // Given
-            EquationEntity equation = new EquationEntity(null, "x+1", List.of());
+            EquationEntity equation = new EquationEntity(null, "x+1", List.of(), "test-hash");
             
             // When
             EquationEntity saved = repository.save(equation);
@@ -55,9 +55,9 @@ class InMemoryEquationRepositoryTest {
         @DisplayName("Should save multiple equations with sequential IDs")
         void shouldSaveMultipleEquationsWithSequentialIds() {
             // Given
-            EquationEntity equation1 = new EquationEntity(null, "x+1", List.of());
-            EquationEntity equation2 = new EquationEntity(null, "y*2", List.of());
-            EquationEntity equation3 = new EquationEntity(null, "z^3", List.of());
+            EquationEntity equation1 = new EquationEntity(null, "x+1", List.of(), "hash1");
+            EquationEntity equation2 = new EquationEntity(null, "y*2", List.of(), "hash2");
+            EquationEntity equation3 = new EquationEntity(null, "z^3", List.of(), "hash3");
             
             // When
             EquationEntity saved1 = repository.save(equation1);
@@ -74,12 +74,12 @@ class InMemoryEquationRepositoryTest {
         @DisplayName("Should update existing equation when ID is provided")
         void shouldUpdateExistingEquation() {
             // Given - save initial equation
-            EquationEntity original = new EquationEntity(null, "x+1", List.of());
+            EquationEntity original = new EquationEntity(null, "x+1", List.of(), "original-hash");
             EquationEntity saved = repository.save(original);
             Long id = saved.getId();
             
             // When - update with same ID
-            EquationEntity updated = new EquationEntity(id, "x+2", List.of(Token.VARIABLE));
+            EquationEntity updated = new EquationEntity(id, "x+2", List.of(Token.VARIABLE), "updated-hash");
             EquationEntity result = repository.save(updated);
             
             // Then
@@ -111,7 +111,7 @@ class InMemoryEquationRepositoryTest {
         @DisplayName("Should find existing equation by ID")
         void shouldFindExistingEquationById() {
             // Given
-            EquationEntity equation = new EquationEntity(null, "a*b+c", List.of());
+            EquationEntity equation = new EquationEntity(null, "a*b+c", List.of(), "test-hash");
             EquationEntity saved = repository.save(equation);
             
             // When
@@ -161,9 +161,9 @@ class InMemoryEquationRepositoryTest {
         @DisplayName("Should return all saved equations")
         void shouldReturnAllSavedEquations() {
             // Given
-            EquationEntity eq1 = repository.save(new EquationEntity(null, "x+1", List.of()));
-            EquationEntity eq2 = repository.save(new EquationEntity(null, "y*2", List.of()));
-            EquationEntity eq3 = repository.save(new EquationEntity(null, "z^3", List.of()));
+            EquationEntity eq1 = repository.save(new EquationEntity(null, "x+1", List.of(), "hash1"));
+            EquationEntity eq2 = repository.save(new EquationEntity(null, "y*2", List.of(), "hash2"));
+            EquationEntity eq3 = repository.save(new EquationEntity(null, "z^3", List.of(), "hash3"));
             
             // When
             List<EquationEntity> equations = repository.findAll();
@@ -180,14 +180,14 @@ class InMemoryEquationRepositoryTest {
         @DisplayName("Should return snapshot that is not affected by concurrent modifications")
         void shouldReturnSnapshotNotAffectedByConcurrentModifications() {
             // Given
-            repository.save(new EquationEntity(null, "x+1", List.of()));
-            repository.save(new EquationEntity(null, "y*2", List.of()));
+            repository.save(new EquationEntity(null, "x+1", List.of(), "hash1"));
+            repository.save(new EquationEntity(null, "y*2", List.of(), "hash2"));
             
             // When
             List<EquationEntity> snapshot = repository.findAll();
             
             // Then - add more equations after getting snapshot
-            repository.save(new EquationEntity(null, "z^3", List.of()));
+            repository.save(new EquationEntity(null, "z^3", List.of(), "hash3"));
             
             // Verify snapshot is unchanged
             assertThat(snapshot).hasSize(2);
@@ -206,8 +206,8 @@ class InMemoryEquationRepositoryTest {
             assertThat(repository.size()).isZero();
             
             // When
-            repository.save(new EquationEntity(null, "x+1", List.of()));
-            repository.save(new EquationEntity(null, "y*2", List.of()));
+            repository.save(new EquationEntity(null, "x+1", List.of(), "hash1"));
+            repository.save(new EquationEntity(null, "y*2", List.of(), "hash2"));
             
             // Then
             assertThat(repository.size()).isEqualTo(2);
@@ -217,8 +217,8 @@ class InMemoryEquationRepositoryTest {
         @DisplayName("Should clear all equations")
         void shouldClearAllEquations() {
             // Given
-            repository.save(new EquationEntity(null, "x+1", List.of()));
-            repository.save(new EquationEntity(null, "y*2", List.of()));
+            repository.save(new EquationEntity(null, "x+1", List.of(), "hash1"));
+            repository.save(new EquationEntity(null, "y*2", List.of(), "hash2"));
             assertThat(repository.size()).isEqualTo(2);
             
             // When
@@ -251,7 +251,7 @@ class InMemoryEquationRepositoryTest {
                     try {
                         for (int j = 0; j < equationsPerThread; j++) {
                             String infix = String.format("thread%d_eq%d", threadId, j);
-                            repository.save(new EquationEntity(null, infix, List.of()));
+                            repository.save(new EquationEntity(null, infix, List.of(), "hash" + j));
                             successCount.incrementAndGet();
                         }
                     } finally {
@@ -285,7 +285,7 @@ class InMemoryEquationRepositoryTest {
             
             // Pre-populate with some data
             for (int i = 0; i < 10; i++) {
-                repository.save(new EquationEntity(null, "initial_" + i, List.of()));
+                repository.save(new EquationEntity(null, "initial_" + i, List.of(), "initial-hash" + i));
             }
             
             // When - concurrent writers
@@ -294,7 +294,7 @@ class InMemoryEquationRepositoryTest {
                 executor.submit(() -> {
                     try {
                         for (int j = 0; j < operationsPerThread; j++) {
-                            repository.save(new EquationEntity(null, "writer" + threadId + "_" + j, List.of()));
+                            repository.save(new EquationEntity(null, "writer" + threadId + "_" + j, List.of(), "writer-hash" + j));
                         }
                     } finally {
                         latch.countDown();
@@ -346,7 +346,7 @@ class InMemoryEquationRepositoryTest {
                     try {
                         startLatch.await(); // Wait for all threads to be ready
                         for (int j = 0; j < equationsPerThread; j++) {
-                            repository.save(new EquationEntity(null, "concurrent_" + j, List.of()));
+                            repository.save(new EquationEntity(null, "concurrent_" + j, List.of(), "concurrent-hash" + j));
                         }
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
@@ -385,7 +385,7 @@ class InMemoryEquationRepositoryTest {
         @DisplayName("Should handle complete CRUD workflow")
         void shouldHandleCompleteCrudWorkflow() {
             // Create
-            EquationEntity equation = new EquationEntity(null, "x^2+2*x+1", List.of());
+            EquationEntity equation = new EquationEntity(null, "x^2+2*x+1", List.of(), "create-hash");
             EquationEntity saved = repository.save(equation);
             assertThat(saved.getId()).isNotNull();
             
@@ -395,7 +395,7 @@ class InMemoryEquationRepositoryTest {
             assertThat(found.get().getInfix()).isEqualTo("x^2+2*x+1");
             
             // Update
-            EquationEntity updated = new EquationEntity(saved.getId(), "x^2+3*x+2", List.of(Token.VARIABLE));
+            EquationEntity updated = new EquationEntity(saved.getId(), "x^2+3*x+2", List.of(Token.VARIABLE), "update-hash");
             EquationEntity savedUpdate = repository.save(updated);
             assertThat(savedUpdate.getId()).isEqualTo(saved.getId());
             assertThat(savedUpdate.getInfix()).isEqualTo("x^2+3*x+2");

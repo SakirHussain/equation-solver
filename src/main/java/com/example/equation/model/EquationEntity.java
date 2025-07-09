@@ -2,21 +2,23 @@ package com.example.equation.model;
 
 import java.util.List;
 
-// equation with id, infix and postfix
+// equation with id, infix, postfix, and AST hash
 public class EquationEntity {
     
     private Long id;
     private String infix;
     private List<Token> postfix;
+    private String astHash;
     
     public EquationEntity() {
     }
     
 
-    public EquationEntity(Long id, String infix, List<Token> postfix) {
+    public EquationEntity(Long id, String infix, List<Token> postfix, String astHash) {
         this.id = id;
         this.infix = infix;
         this.postfix = postfix;
+        this.astHash = astHash;
     }
 
 
@@ -46,12 +48,21 @@ public class EquationEntity {
         this.postfix = postfix;
     }
     
+    public String getAstHash() {
+        return astHash;
+    }
+    
+    public void setAstHash(String astHash) {
+        this.astHash = astHash;
+    }
+    
     @Override
     public String toString() {
         return "EquationEntity{" +
                 "id=" + id +
                 ", infix='" + infix + "'" +
                 ", postfix=" + postfix +
+                ", astHash='" + astHash + "'" +
                 "}";
     }
     

@@ -66,4 +66,12 @@ public final class OperatorNode implements Node {
     public int hashCode() {
         return Character.hashCode(op) + 31 * (left.hashCode() + 31 * right.hashCode());
     }
+    
+    @Override
+    public String generateHash() {
+        // Generate a canonical string representation of the tree structure
+        // Format: (leftHash op rightHash)
+        // This captures the exact tree structure regardless of original parentheses
+        return "(" + left.generateHash() + op + right.generateHash() + ")";
+    }
 } 

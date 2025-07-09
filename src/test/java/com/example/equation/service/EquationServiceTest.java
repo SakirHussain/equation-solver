@@ -57,8 +57,11 @@ class EquationServiceTest {
             String infix = "x + 2 * 3";
             Long expectedId = 1L;
             
-            // Mock duplicate check
-            when(equationRepository.findAll()).thenReturn(List.of()); // No duplicates
+            // Mock AST parsing for hash generation
+            when(parserService.parseExpression(infix)).thenReturn(new OperandNode("test"));
+            
+            // Mock duplicate check - no existing equation
+            when(equationRepository.findByAstHash(any())).thenReturn(Optional.empty());
             
             // Mock parser service calls
             when(parserService.tokenize(infix)).thenReturn(List.of(
@@ -70,7 +73,7 @@ class EquationServiceTest {
             when(parserService.buildExpressionTree(any())).thenReturn(new OperandNode("test"));
             
             // Mock repository save
-            EquationEntity savedEntity = new EquationEntity(expectedId, infix, List.of());
+            EquationEntity savedEntity = new EquationEntity(expectedId, infix, List.of(), "test");
             when(equationRepository.save(any(EquationEntity.class))).thenReturn(savedEntity);
             
             // When
@@ -80,10 +83,10 @@ class EquationServiceTest {
             assertThat(actualId).isEqualTo(expectedId);
             
             // Verify interactions
-            verify(equationRepository).findAll(); // Duplicate check
+            verify(parserService).parseExpression(infix); // AST parsing for hash
+            verify(equationRepository).findByAstHash("test"); // Duplicate check using hash
             verify(parserService).tokenize(infix);
             verify(parserService).infixToPostfix(any());
-            verify(parserService).buildExpressionTree(any());
             verify(equationRepository).save(argThat(entity -> 
                 entity.getInfix().equals(infix) && entity.getId() == null));
         }
@@ -96,12 +99,13 @@ class EquationServiceTest {
             String trimmedInfix = "x + 1";
             Long expectedId = 1L;
             
-            when(equationRepository.findAll()).thenReturn(List.of()); // No duplicates
+            when(parserService.parseExpression(trimmedInfix)).thenReturn(new OperandNode("test"));
+            when(equationRepository.findByAstHash("test")).thenReturn(Optional.empty()); // No duplicates
             when(parserService.tokenize(trimmedInfix)).thenReturn(List.of());
             when(parserService.infixToPostfix(any())).thenReturn(List.of());
             when(parserService.buildExpressionTree(any())).thenReturn(new OperandNode("test"));
             
-            EquationEntity savedEntity = new EquationEntity(expectedId, trimmedInfix, List.of());
+            EquationEntity savedEntity = new EquationEntity(expectedId, trimmedInfix, List.of(), "test");
             when(equationRepository.save(any())).thenReturn(savedEntity);
             
             // When
@@ -109,9 +113,9 @@ class EquationServiceTest {
             
             // Then
             assertThat(actualId).isEqualTo(expectedId);
-            verify(equationRepository).findAll(); // Duplicate check
+            verify(equationRepository).findByAstHash("test"); // Duplicate check using hash
             verify(parserService).tokenize(trimmedInfix);
-            verify(parserService).buildExpressionTree(any());
+            verify(parserService).infixToPostfix(any());
             verify(equationRepository).save(argThat(entity -> 
                 entity.getInfix().equals(trimmedInfix)));
         }
@@ -144,8 +148,7 @@ class EquationServiceTest {
         void shouldPropagateEquationSyntaxException() {
             // Given
             String invalidInfix = "x + + 1";
-            when(equationRepository.findAll()).thenReturn(List.of()); // No duplicates
-            when(parserService.tokenize(invalidInfix))
+            when(parserService.parseExpression(invalidInfix))
                 .thenThrow(new EquationSyntaxException("Invalid syntax"));
             
             // When & Then
@@ -153,9 +156,9 @@ class EquationServiceTest {
                 .isInstanceOf(EquationSyntaxException.class)
                 .hasMessage("Invalid syntax");
             
-            verify(equationRepository).findAll(); // Called for duplicate check
-            verify(parserService).tokenize(invalidInfix);
+            verify(parserService).parseExpression(invalidInfix); // Called for AST generation
             verify(equationRepository, never()).save(any());
+            verify(equationRepository, never()).findByAstHash(any());
         }
         
         @Test
@@ -163,8 +166,11 @@ class EquationServiceTest {
         void shouldReturnExistingIdForDuplicateEquations() {
             // Given
             String equation = "x + 1";
-            EquationEntity existingEntity = new EquationEntity(42L, equation, List.of(Token.VARIABLE, Token.OPERATOR, Token.NUMBER));
-            when(equationRepository.findAll()).thenReturn(List.of(existingEntity));
+            EquationEntity existingEntity = new EquationEntity(42L, equation, List.of(Token.VARIABLE, Token.OPERATOR, Token.NUMBER), "test-hash");
+            
+            // Mock AST generation for duplicate check
+            when(parserService.parseExpression(equation)).thenReturn(new OperandNode("test"));
+            when(equationRepository.findByAstHash("test")).thenReturn(Optional.of(existingEntity));
             
             // When
             Long resultId = equationService.storeEquation(equation);
@@ -174,8 +180,8 @@ class EquationServiceTest {
             
             // Verify that save was never called (no new entity created)
             verify(equationRepository, never()).save(any(EquationEntity.class));
-            verify(equationRepository).findAll(); // Only called to check for duplicates
-            verifyNoInteractions(parserService); // Parser not called for duplicates
+            verify(equationRepository).findByAstHash("test"); // Called to check for duplicates using hash
+            verify(parserService).parseExpression(equation); // Called to generate AST hash
         }
         
         @Test
@@ -183,9 +189,11 @@ class EquationServiceTest {
         void shouldStoreNewEquationWhenNoDuplicateExists() {
             // Given
             String equation = "y * 2";
-            EquationEntity savedEntity = new EquationEntity(1L, equation, List.of(Token.VARIABLE, Token.OPERATOR, Token.NUMBER));
+            EquationEntity savedEntity = new EquationEntity(1L, equation, List.of(Token.VARIABLE, Token.OPERATOR, Token.NUMBER), "test");
             
-            when(equationRepository.findAll()).thenReturn(List.of()); // No existing equations
+            // Mock AST generation for hash
+            when(parserService.parseExpression(equation)).thenReturn(new OperandNode("test"));
+            when(equationRepository.findByAstHash("test")).thenReturn(Optional.empty()); // No existing equations
             when(parserService.tokenize(equation)).thenReturn(List.of(
                 new TokenValue(Token.VARIABLE, "y"),
                 new TokenValue(Token.OPERATOR, "*"),
@@ -205,10 +213,10 @@ class EquationServiceTest {
             // Then
             assertThat(resultId).isEqualTo(1L);
             verify(equationRepository).save(any(EquationEntity.class));
-            verify(equationRepository).findAll(); // Called to check for duplicates
+            verify(equationRepository).findByAstHash("test"); // Called to check for duplicates using hash
+            verify(parserService).parseExpression(equation); // Called for AST hash generation
             verify(parserService).tokenize(equation);
             verify(parserService).infixToPostfix(any());
-            verify(parserService).buildExpressionTree(any());
         }
         
         @Test
@@ -217,8 +225,12 @@ class EquationServiceTest {
             // Given - existing equation without extra spaces
             String existingEquation = "x + 1";
             String newEquationWithSpaces = "  x + 1  "; // Same equation but with extra whitespace
-            EquationEntity existingEntity = new EquationEntity(5L, existingEquation, List.of());
-            when(equationRepository.findAll()).thenReturn(List.of(existingEntity));
+            String trimmedEquation = "x + 1";
+            EquationEntity existingEntity = new EquationEntity(5L, existingEquation, List.of(), "test");
+            
+            // Mock AST generation - both expressions produce same hash
+            when(parserService.parseExpression(trimmedEquation)).thenReturn(new OperandNode("test"));
+            when(equationRepository.findByAstHash("test")).thenReturn(Optional.of(existingEntity));
             
             // When
             Long resultId = equationService.storeEquation(newEquationWithSpaces);
@@ -226,7 +238,8 @@ class EquationServiceTest {
             // Then
             assertThat(resultId).isEqualTo(5L); // Should return existing ID
             verify(equationRepository, never()).save(any()); // No new entity saved
-            verifyNoInteractions(parserService); // Parser not called
+            verify(parserService).parseExpression(trimmedEquation); // Parser called for AST hash
+            verify(equationRepository).findByAstHash("test"); // Duplicate check using hash
         }
     }
     
@@ -253,9 +266,9 @@ class EquationServiceTest {
         void shouldConvertAllEntitiesToDtos() {
             // Given
             List<EquationEntity> entities = List.of(
-                new EquationEntity(1L, "x+1", List.of(Token.VARIABLE, Token.OPERATOR, Token.NUMBER)),
-                new EquationEntity(2L, "y*2", List.of(Token.VARIABLE, Token.OPERATOR, Token.NUMBER)),
-                new EquationEntity(3L, "z^3", List.of(Token.VARIABLE, Token.OPERATOR, Token.NUMBER))
+                new EquationEntity(1L, "x+1", List.of(Token.VARIABLE, Token.OPERATOR, Token.NUMBER), "hash1"),
+                new EquationEntity(2L, "y*2", List.of(Token.VARIABLE, Token.OPERATOR, Token.NUMBER), "hash2"),
+                new EquationEntity(3L, "z^3", List.of(Token.VARIABLE, Token.OPERATOR, Token.NUMBER), "hash3")
             );
             when(equationRepository.findAll()).thenReturn(entities);
             
@@ -311,7 +324,7 @@ class EquationServiceTest {
             double expectedResult = 16.0; // 2^2 + 4*3 = 4 + 12 = 16
             
             // Mock repository
-            EquationEntity equation = new EquationEntity(equationId, infix, List.of());
+            EquationEntity equation = new EquationEntity(equationId, infix, List.of(), "test-hash");
             when(equationRepository.findById(equationId)).thenReturn(Optional.of(equation));
             
             // Mock parser - use concrete OperandNode instead of mocking sealed interface
@@ -382,7 +395,7 @@ class EquationServiceTest {
             String infix = "x + y";
             Map<String, Double> incompleteVariables = Map.of("x", 1.0); // missing 'y'
             
-            EquationEntity equation = new EquationEntity(equationId, infix, List.of());
+            EquationEntity equation = new EquationEntity(equationId, infix, List.of(), "test-hash");
             when(equationRepository.findById(equationId)).thenReturn(Optional.of(equation));
             com.example.equation.model.Node mockNode = new com.example.equation.model.OperandNode("5");
             when(parserService.parseExpression(infix)).thenReturn(mockNode);
@@ -405,7 +418,7 @@ class EquationServiceTest {
             String infix = "x / y";
             Map<String, Double> variables = Map.of("x", 10.0, "y", 0.0); // division by zero
             
-            EquationEntity equation = new EquationEntity(equationId, infix, List.of());
+            EquationEntity equation = new EquationEntity(equationId, infix, List.of(), "test-hash");
             when(equationRepository.findById(equationId)).thenReturn(Optional.of(equation));
             com.example.equation.model.Node mockNode = new com.example.equation.model.OperandNode("5");
             when(parserService.parseExpression(infix)).thenReturn(mockNode);
@@ -432,20 +445,20 @@ class EquationServiceTest {
             Map<String, Double> variables = Map.of("radius", 5.0);
             double expectedArea = 78.53975; // 5^2 * 3.14159
             
-            // Mock store workflow
-            EquationEntity savedEntity = new EquationEntity(equationId, infix, List.of());
-            when(equationRepository.findAll())
-                .thenReturn(List.of()) // First call for duplicate check (no duplicates)
-                .thenReturn(List.of(savedEntity)); // Second call for retrieve
+            // Mock store workflow - AST-based duplicate checking
+            EquationEntity savedEntity = new EquationEntity(equationId, infix, List.of(), "test");
+            when(parserService.parseExpression(infix)).thenReturn(new OperandNode("test"));
+            when(equationRepository.findByAstHash("test")).thenReturn(Optional.empty()); // No duplicates
             when(parserService.tokenize(infix)).thenReturn(List.of());
             when(parserService.infixToPostfix(any())).thenReturn(List.of());
             when(parserService.buildExpressionTree(any())).thenReturn(new OperandNode("test"));
             when(equationRepository.save(any())).thenReturn(savedEntity);
             
+            // Mock retrieve workflow
+            when(equationRepository.findAll()).thenReturn(List.of(savedEntity));
+            
             // Mock evaluate workflow
             when(equationRepository.findById(equationId)).thenReturn(Optional.of(savedEntity));
-            com.example.equation.model.Node mockNode = new com.example.equation.model.OperandNode("5");
-            when(parserService.parseExpression(infix)).thenReturn(mockNode);
             when(evaluationService.evaluate(any(), eq(variables))).thenReturn(expectedArea);
             
             // When - Store equation
@@ -469,12 +482,12 @@ class EquationServiceTest {
             assertThat(result).isEqualTo(expectedArea);
             
             // Verify all interactions occurred
+            verify(parserService, times(2)).parseExpression(infix); // Called for store (hash) and evaluate
+            verify(equationRepository).findByAstHash("test"); // Called for duplicate check
             verify(parserService).tokenize(infix);
             verify(parserService).infixToPostfix(any());
-            verify(parserService).buildExpressionTree(any());
-            verify(parserService).parseExpression(infix);
             verify(equationRepository).save(any());
-            verify(equationRepository, times(2)).findAll(); // Called twice: duplicate check + retrieve
+            verify(equationRepository).findAll(); // Called once for retrieve
             verify(equationRepository).findById(equationId);
             verify(evaluationService).evaluate(any(), eq(variables));
         }

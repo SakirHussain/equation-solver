@@ -29,7 +29,7 @@ public class InMemoryEquationRepository implements EquationRepository {
         
         if (equation.getId() == null) {
             Long newId = idGenerator.getAndIncrement();
-            entityToSave = new EquationEntity(newId, equation.getInfix(), equation.getPostfix());
+            entityToSave = new EquationEntity(newId, equation.getInfix(), equation.getPostfix(), equation.getAstHash());
         } else {
             entityToSave = equation;
         }
@@ -53,6 +53,19 @@ public class InMemoryEquationRepository implements EquationRepository {
     @Override
     public List<EquationEntity> findAll() {
         return new ArrayList<>(storage.values());
+    }
+    
+    @Override
+    public Optional<EquationEntity> findByAstHash(String astHash) {
+        if (astHash == null) {
+            throw new IllegalArgumentException("AST hash cannot be null");
+        }
+        
+        // Linear search through all equations to find matching AST hash
+        // In a real implementation, this could be optimized with a secondary index
+        return storage.values().stream()
+            .filter(equation -> astHash.equals(equation.getAstHash()))
+            .findFirst();
     }
     
     

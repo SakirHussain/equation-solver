@@ -50,4 +50,11 @@ public final class OperandNode implements Node {
     public int hashCode() {
         return symbol.hashCode();
     }
+    
+    @Override
+    public String generateHash() {
+        // For operands, the hash is simply the symbol itself
+        // This preserves variable names distinctly (a ≠ x)
+        return symbol;
+    }
 } 
