@@ -44,6 +44,7 @@ public final class OperatorNode implements Node {
                 }
                 yield leftValue / rightValue;
             }
+            case '^' -> Math.pow(leftValue, rightValue);
             default -> throw new IllegalArgumentException("Unsupported operator: " + op);
         };
     }
