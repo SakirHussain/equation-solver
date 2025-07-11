@@ -13,12 +13,6 @@ public interface EquationRepository {
     
     List<EquationEntity> findAll();
     
-    /**
-     * Finds an equation by its AST hash.
-     * This enables fast lookup of mathematically equivalent equations.
-     * 
-     * @param astHash the AST hash string
-     * @return Optional containing the equation if found, empty otherwise
-     */
+    // better for searching for equivalent equations
     Optional<EquationEntity> findByAstHash(String astHash);
 } 

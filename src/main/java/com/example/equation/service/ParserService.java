@@ -14,40 +14,28 @@ import java.util.Stack;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/**
- * Service for parsing mathematical expressions from infix notation to postfix notation
- * and building abstract syntax trees.
- */
+
 @Service
 public class ParserService {
     
-    // Regex patterns for tokenization
     private static final Pattern NUMBER_PATTERN = Pattern.compile("\\d+(\\.\\d+)?");
     private static final Pattern VARIABLE_PATTERN = Pattern.compile("[a-zA-Z]+");
     private static final Pattern OPERATOR_PATTERN = Pattern.compile("[+\\-*/^]");
     private static final Pattern PAREN_PATTERN = Pattern.compile("[()]");
     
-    /**
-     * Tokenizes an infix expression into a list of token values.
-     * Supports decimal numbers, variables, operators (+, -, *, /, ^), and parentheses.
-     * 
-     * @param infix the infix expression to tokenize
-     * @return list of token values representing the expression
-     * @throws EquationSyntaxException if the expression contains invalid characters
-     */
+    // tokenize
     public List<TokenValue> tokenize(String infix) {
         if (infix == null || infix.trim().isEmpty()) {
             throw new EquationSyntaxException("Expression cannot be null or empty");
         }
         
         List<TokenValue> tokens = new ArrayList<>();
-        String cleanInfix = infix.replaceAll("\\s+", ""); // Remove whitespace
+        String cleanInfix = infix.replaceAll("\\s+", ""); // no whitespace
         
         int i = 0;
         while (i < cleanInfix.length()) {
             char ch = cleanInfix.charAt(i);
             
-            // Try to match patterns at current position
             String remaining = cleanInfix.substring(i);
             
             Matcher numberMatcher = NUMBER_PATTERN.matcher(remaining);
@@ -86,14 +74,7 @@ public class ParserService {
         return tokens;
     }
     
-    /**
-     * Converts an infix token list to postfix notation using the Shunting-Yard algorithm.
-     * Handles operator precedence and associativity rules.
-     * 
-     * @param infixTokens the infix token values to convert
-     * @return list of token values in postfix notation
-     * @throws EquationSyntaxException if parentheses are unbalanced
-     */
+    // shunting yard algorithm
     public List<TokenValue> infixToPostfix(List<TokenValue> infixTokens) {
         if (infixTokens == null || infixTokens.isEmpty()) {
             throw new EquationSyntaxException("Token list cannot be null or empty");
@@ -139,7 +120,6 @@ public class ParserService {
             }
         }
         
-        // Pop remaining operators from stack
         while (!operatorStack.isEmpty()) {
             TokenValue op = operatorStack.pop();
             if (op.getType() == Token.LPAREN || op.getType() == Token.RPAREN) {
@@ -151,13 +131,7 @@ public class ParserService {
         return output;
     }
     
-    /**
-     * Builds an expression tree from postfix token values using a stack-based algorithm.
-     * 
-     * @param postfixTokens the postfix token values to convert to a tree
-     * @return the root node of the expression tree
-     * @throws EquationSyntaxException if the postfix expression is invalid
-     */
+    // build expression tree
     public Node buildExpressionTree(List<TokenValue> postfixTokens) {
         if (postfixTokens == null || postfixTokens.isEmpty()) {
             throw new EquationSyntaxException("Postfix token list cannot be null or empty");
@@ -194,46 +168,25 @@ public class ParserService {
         return nodeStack.pop();
     }
     
-    /**
-     * Convenience method that parses an infix expression string into an expression tree.
-     * This method combines tokenization, postfix conversion, and tree building.
-     * 
-     * @param infix the infix expression string to parse
-     * @return the root node of the expression tree
-     * @throws EquationSyntaxException if the expression is invalid
-     */
+    
     public Node parseExpression(String infix) {
         List<TokenValue> tokens = tokenize(infix);
         List<TokenValue> postfixTokens = infixToPostfix(tokens);
         return buildExpressionTree(postfixTokens);
     }
     
-    /**
-     * Determines if operator1 has higher or equal precedence compared to operator2.
-     * Also handles associativity rules.
-     * 
-     * Precedence (high to low):
-     * ^ (power) - right associative
-     * *, / (multiply/divide) - left associative
-     * +, - (add/subtract) - left associative
-     */
     private boolean hasHigherOrEqualPrecedence(char operator1, char operator2) {
         int prec1 = getOperatorPrecedence(operator1);
         int prec2 = getOperatorPrecedence(operator2);
         
-        // For right-associative operators (^), only pop if strictly higher precedence
         if (operator2 == '^') {
             return prec1 > prec2;
         }
         
-        // For left-associative operators (+, -, *, /), pop if higher or equal precedence
         return prec1 >= prec2;
     }
     
-    /**
-     * Gets the precedence level of an operator.
-     * Higher numbers indicate higher precedence.
-     */
+    // precedence
     private int getOperatorPrecedence(char operator) {
         return switch (operator) {
             case '+', '-' -> 1;
