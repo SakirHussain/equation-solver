@@ -61,8 +61,7 @@ public class InMemoryEquationRepository implements EquationRepository {
             throw new IllegalArgumentException("AST hash cannot be null");
         }
         
-        // Linear search through all equations to find matching AST hash
-        // In a real implementation, this could be optimized with a secondary index
+        // linear search
         return storage.values().stream()
             .filter(equation -> astHash.equals(equation.getAstHash()))
             .findFirst();
